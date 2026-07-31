@@ -39,7 +39,7 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `${name} is not set. Copy web/.env.example to web/.env.local and fill it in.`,
+      `${name} is not set. Copy .env.example to .env.local and fill it in.`,
     );
   }
   return value;
