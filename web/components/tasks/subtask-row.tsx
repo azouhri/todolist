@@ -1,0 +1,255 @@
+"use client";
+
+import { useState } from "react";
+import { ClockIcon, HistoryIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
+
+import { changeSubtaskStatus, deleteSubtask, updateSubtask } from "@/app/actions/subtasks";
+import { OverdueBadge, PriorityBadge, ReminderBadge } from "@/components/common/badges";
+import { OptionSelect, optionsFrom } from "@/components/common/option-select";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAction } from "@/hooks/use-action";
+import { fromDateInputValue, toDateInputValue } from "@/lib/date";
+import {
+  PRIORITIES,
+  PRIORITY_LABELS,
+  SUBTASK_STATUSES,
+  SUBTASK_STATUS_LABELS,
+  type Priority,
+  type SubtaskStatus,
+} from "@/lib/domain/enums";
+import { cn } from "@/lib/utils";
+
+export type SubtaskRowData = {
+  id: string;
+  title: string;
+  status: SubtaskStatus;
+  priority: Priority;
+  ownerId: string;
+  ownerName: string;
+  requestedDate: Date | null;
+  dueDate: Date | null;
+  alertAfterDays: number | null;
+  clocks: {
+    daysWaiting: number | null;
+    daysSinceLastContact: number | null;
+    effectiveAlertAfterDays: number;
+    needsReminder: boolean;
+    isOverdue: boolean;
+    isDueToday: boolean;
+  };
+};
+
+export function SubtaskRow({
+  subtask,
+  contacts,
+  handle,
+  onOpenHistory,
+  highlighted,
+}: {
+  subtask: SubtaskRowData;
+  contacts: { id: string; name: string }[];
+  handle: React.ReactNode;
+  onOpenHistory: () => void;
+  highlighted?: boolean;
+}) {
+  const [title, setTitle] = useState(subtask.title);
+  const { run, isPending } = useAction();
+
+  const isClosed = subtask.status === "done" || subtask.status === "cancelled";
+
+  function saveTitle() {
+    const trimmed = title.trim();
+    if (!trimmed || trimmed === subtask.title) {
+      setTitle(subtask.title);
+      return;
+    }
+    run(() => updateSubtask(subtask.id, { title: trimmed }));
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border bg-card p-3",
+        highlighted && "ring-2 ring-ring",
+        isClosed && "opacity-70",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {handle}
+
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={saveTitle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              setTitle(subtask.title);
+              e.currentTarget.blur();
+            }
+          }}
+          aria-label="Subtask title"
+          className={cn(
+            "h-8 flex-1 border-transparent bg-transparent px-1.5 font-medium shadow-none hover:border-input focus-visible:border-ring",
+            isClosed && "line-through",
+          )}
+        />
+
+        {subtask.clocks.needsReminder && (
+          <Tooltip>
+            <TooltipTrigger render={<span />}>
+              <ReminderBadge days={subtask.clocks.daysWaiting} />
+            </TooltipTrigger>
+            <TooltipContent>
+              No contact for {subtask.clocks.daysSinceLastContact} days (chase
+              after {subtask.clocks.effectiveAlertAfterDays})
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {(subtask.clocks.isOverdue || subtask.clocks.isDueToday) && (
+          <OverdueBadge dueToday={subtask.clocks.isDueToday} />
+        )}
+        <PriorityBadge priority={subtask.priority} />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={`Actions for ${subtask.title}`}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <MoreHorizontalIcon className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={onOpenHistory}>
+              <HistoryIcon /> History
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => run(() => deleteSubtask(subtask.id))}
+            >
+              <Trash2Icon /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 pl-8">
+        <div className="w-36">
+          <OptionSelect
+            size="sm"
+            value={subtask.status}
+            onChange={(status) => run(() => changeSubtaskStatus(subtask.id, status))}
+            options={optionsFrom(SUBTASK_STATUSES, SUBTASK_STATUS_LABELS)}
+            disabled={isPending}
+            ariaLabel="Status"
+          />
+        </div>
+
+        <div className="w-40">
+          <OptionSelect
+            size="sm"
+            value={subtask.ownerId}
+            onChange={(ownerId) => run(() => updateSubtask(subtask.id, { ownerId }))}
+            options={contacts.map((c) => ({ value: c.id, label: c.name }))}
+            disabled={isPending}
+            ariaLabel="Owner"
+          />
+        </div>
+
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Requested
+          <Input
+            type="date"
+            className="h-7 w-36"
+            value={toDateInputValue(subtask.requestedDate)}
+            onChange={(e) =>
+              run(() =>
+                updateSubtask(subtask.id, {
+                  requestedDate: fromDateInputValue(e.target.value),
+                }),
+              )
+            }
+          />
+        </label>
+
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Due
+          <Input
+            type="date"
+            className="h-7 w-36"
+            value={toDateInputValue(subtask.dueDate)}
+            onChange={(e) =>
+              run(() =>
+                updateSubtask(subtask.id, {
+                  dueDate: fromDateInputValue(e.target.value),
+                }),
+              )
+            }
+          />
+        </label>
+
+        <div className="w-28">
+          <OptionSelect
+            size="sm"
+            value={subtask.priority}
+            onChange={(priority) => run(() => updateSubtask(subtask.id, { priority }))}
+            options={optionsFrom(PRIORITIES, PRIORITY_LABELS)}
+            disabled={isPending}
+            ariaLabel="Priority"
+          />
+        </div>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ClockIcon className="size-3.5" />
+                <Input
+                  type="number"
+                  min={0}
+                  max={365}
+                  className="h-7 w-16 tabular-nums"
+                  placeholder={String(subtask.clocks.effectiveAlertAfterDays)}
+                  value={subtask.alertAfterDays ?? ""}
+                  onChange={(e) =>
+                    run(() =>
+                      updateSubtask(subtask.id, {
+                        alertAfterDays:
+                          e.target.value === "" ? null : Number(e.target.value),
+                      }),
+                    )
+                  }
+                />
+              </label>
+            }
+          />
+          <TooltipContent>
+            Chase after this many quiet days. Blank uses the app default.
+          </TooltipContent>
+        </Tooltip>
+
+        {subtask.status === "waiting" && subtask.clocks.daysWaiting !== null && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Waiting {subtask.clocks.daysWaiting}d
+          </span>
+        )}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-7"
+          onClick={onOpenHistory}
+        >
+          <HistoryIcon /> History
+        </Button>
+      </div>
+    </div>
+  );
+}

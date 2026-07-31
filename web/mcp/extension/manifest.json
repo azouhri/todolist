@@ -1,0 +1,59 @@
+{
+  "manifest_version": "0.3",
+  "name": "follow-ups",
+  "display_name": "Follow-up Manager",
+  "version": "1.0.0",
+  "description": "Who owes me what, and when do I chase them again — reads and writes the local Follow-up Manager database.",
+  "long_description": "Connects Claude Desktop to your local Follow-up & Execution Manager. Ask who needs chasing today, see everything you are waiting on grouped by person, create tasks and subtasks, log that you chased someone, and move subtasks between statuses.\n\nIt uses the same domain rules as the web app, so the two clocks (how long you have been waiting vs. how long since you last made contact) and the task status roll-up stay identical no matter which one you use. The web app does not need to be running.",
+  "author": {
+    "name": "Follow-up Manager"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server.mjs"]
+    }
+  },
+  "tools": [
+    {
+      "name": "who_do_i_chase",
+      "description": "The subtasks that are waiting on someone and have gone quiet past their reminder cooldown"
+    },
+    {
+      "name": "waiting_on_summary",
+      "description": "Everything you are waiting for, grouped by the person who owes it"
+    },
+    { "name": "list_tasks", "description": "Every task with its derived status and progress" },
+    {
+      "name": "get_task",
+      "description": "One task in full: subtasks, owners, both clocks and latest events"
+    },
+    {
+      "name": "list_contacts",
+      "description": "Who can own a subtask, with ids; marks the default owner"
+    },
+    { "name": "create_task", "description": "Create a task" },
+    {
+      "name": "create_subtask",
+      "description": "Add a subtask to a task; owner and requested date default"
+    },
+    {
+      "name": "log_reminder",
+      "description": "Record a follow-up event, resetting the reminder cooldown"
+    },
+    {
+      "name": "set_subtask_status",
+      "description": "Move a subtask to a new status, applying the app's clock rules"
+    }
+  ],
+  "keywords": ["tasks", "follow-up", "reminders", "productivity"],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": ["win32", "darwin", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}
