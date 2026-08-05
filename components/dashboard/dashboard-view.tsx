@@ -25,6 +25,8 @@ export type DashboardSubtask = {
   daysWaiting: number | null;
   daysSinceLastContact: number | null;
   isDueToday: boolean;
+  /** Waiting, and past its reminder cooldown. */
+  needsChasing: boolean;
 };
 
 export type DashboardTask = {
@@ -41,6 +43,8 @@ export type OwnerBucket = {
   waiting: number;
   needsReminder: number;
   oldestDaysWaiting: number | null;
+  /** What you are actually waiting for from this person. */
+  items: DashboardSubtask[];
 };
 
 function Widget({
@@ -123,7 +127,7 @@ export function DashboardView({
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         <Widget
           title="Needs a reminder today"
           count={needsReminder.length}
@@ -154,25 +158,48 @@ export function DashboardView({
           {waitingOn.length === 0 ? (
             <Empty>You are not waiting on anyone</Empty>
           ) : (
-            <ul className="space-y-0.5">
+            <ul className="space-y-3">
               {waitingOn.map((bucket) => (
-                <li
-                  key={bucket.ownerName}
-                  className="flex items-center gap-2 py-1.5"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {bucket.ownerName}
-                  </span>
-                  {bucket.needsReminder > 0 && (
-                    <Badge className="bg-amber-500/15 text-amber-700 tabular-nums dark:text-amber-300">
-                      {bucket.needsReminder} to chase
-                    </Badge>
-                  )}
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {bucket.waiting} open
-                    {bucket.oldestDaysWaiting !== null &&
-                      ` · oldest ${bucket.oldestDaysWaiting}d`}
-                  </span>
+                <li key={bucket.ownerName}>
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {bucket.ownerName}
+                    </span>
+                    {bucket.needsReminder > 0 && (
+                      <Badge className="bg-amber-500/15 text-amber-700 tabular-nums dark:text-amber-300">
+                        {bucket.needsReminder} to chase
+                      </Badge>
+                    )}
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {bucket.waiting} open
+                    </span>
+                  </div>
+
+                  {/* The point of the widget: what each person actually owes. */}
+                  <ul className="mt-1 space-y-0.5">
+                    {bucket.items.map((item) => (
+                      <li key={item.id}>
+                        <Link
+                          href={`/tasks/${item.taskId}?subtask=${item.id}`}
+                          className="-mx-2 flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-accent"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-sm">
+                            {item.title}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                            {item.daysWaiting !== null
+                              ? `waiting ${item.daysWaiting}d`
+                              : "waiting"}
+                          </span>
+                          {item.needsChasing && (
+                            <Badge className="shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                              Chase
+                            </Badge>
+                          )}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>

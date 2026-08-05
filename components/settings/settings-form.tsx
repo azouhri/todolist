@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { updateSettings } from "@/app/actions/settings";
-import { OptionSelect } from "@/components/common/option-select";
+import { SearchableSelect } from "@/components/common/searchable-select";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -62,7 +62,7 @@ export function SettingsForm({
 
           <div className="grid max-w-xs gap-2">
             <Label>Default owner for new subtasks</Label>
-            <OptionSelect
+            <SearchableSelect
               value={ownerId}
               onChange={setOwnerId}
               options={[
@@ -70,6 +70,7 @@ export function SettingsForm({
                 ...contacts.map((c) => ({ value: c.id, label: c.name })),
               ]}
               ariaLabel="Default owner for new subtasks"
+              searchPlaceholder="Search contacts…"
             />
           </div>
         </CardContent>

@@ -5,6 +5,7 @@ import { ClockIcon, HistoryIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-r
 
 import { changeSubtaskStatus, deleteSubtask, updateSubtask } from "@/app/actions/subtasks";
 import { OverdueBadge, PriorityBadge, ReminderBadge } from "@/components/common/badges";
+import { SearchableSelect } from "@/components/common/searchable-select";
 import { OptionSelect, optionsFrom } from "@/components/common/option-select";
 import { Button } from "@/components/ui/button";
 import {
@@ -153,13 +154,14 @@ export function SubtaskRow({
         </div>
 
         <div className="w-40">
-          <OptionSelect
+          <SearchableSelect
             size="sm"
             value={subtask.ownerId}
             onChange={(ownerId) => run(() => updateSubtask(subtask.id, { ownerId }))}
             options={contacts.map((c) => ({ value: c.id, label: c.name }))}
             disabled={isPending}
             ariaLabel="Owner"
+            searchPlaceholder="Search contacts…"
           />
         </div>
 

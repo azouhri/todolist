@@ -11,6 +11,7 @@ import { reorderSubtask } from "@/app/actions/ordering";
 import { createSubtask } from "@/app/actions/subtasks";
 import { deleteTask, setTaskManualStatus } from "@/app/actions/tasks";
 import { PriorityBadge, StatusBadge } from "@/components/common/badges";
+import { SearchableSelect } from "@/components/common/searchable-select";
 import { OptionSelect } from "@/components/common/option-select";
 import { SortableRow, VerticalSortable, neighboursOf } from "@/components/common/sortable";
 import {
@@ -207,12 +208,13 @@ export function TaskDetailView({
           className="h-9 min-w-0 flex-1"
         />
         <div className="w-44">
-          <OptionSelect
+          <SearchableSelect
             value={newOwnerId}
             onChange={setNewOwnerId}
             options={contacts.map((c) => ({ value: c.id, label: c.name }))}
             placeholder="Owner"
             ariaLabel="New subtask owner"
+            searchPlaceholder="Search contacts…"
           />
         </div>
         <Button type="submit" disabled={isPending || !newTitle.trim() || !newOwnerId}>

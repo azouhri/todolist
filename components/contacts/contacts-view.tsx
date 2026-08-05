@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import { deleteContact } from "@/app/actions/contacts";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -31,6 +32,7 @@ import { ContactDialog, type ContactRow } from "./contact-dialog";
 export type ContactListItem = ContactRow & { subtaskCount: number };
 
 export function ContactsView({ contacts }: { contacts: ContactListItem[] }) {
+  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<ContactRow | undefined>(undefined);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ContactListItem | null>(null);
@@ -56,6 +58,15 @@ export function ContactsView({ contacts }: { contacts: ContactListItem[] }) {
     });
   }
 
+  // Name, email and team all searchable: you rarely remember which one you know.
+  const visible = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return contacts;
+    return contacts.filter((c) =>
+      `${c.name} ${c.email ?? ""} ${c.team ?? ""}`.toLowerCase().includes(needle),
+    );
+  }, [contacts, search]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -63,6 +74,18 @@ export function ContactsView({ contacts }: { contacts: ContactListItem[] }) {
         <Button onClick={openNew}>
           <PlusIcon /> New contact
         </Button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, email or team…"
+          className="h-8 w-full sm:w-80"
+        />
+        <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+          {visible.length} of {contacts.length}
+        </span>
       </div>
 
       <div className="rounded-lg border">
@@ -77,18 +100,20 @@ export function ContactsView({ contacts }: { contacts: ContactListItem[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contacts.length === 0 && (
+            {visible.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={5}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
-                  No contacts yet.
+                  {contacts.length === 0
+                    ? "No contacts yet."
+                    : "No contacts match that search."}
                 </TableCell>
               </TableRow>
             )}
 
-            {contacts.map((contact) => (
+            {visible.map((contact) => (
               <TableRow key={contact.id}>
                 <TableCell className="font-medium">
                   <span className="flex items-center gap-2">

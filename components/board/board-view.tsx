@@ -24,9 +24,10 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { moveSubtaskOnBoard } from "@/app/actions/ordering";
 import { OverdueBadge, PriorityBadge, ReminderBadge } from "@/components/common/badges";
-import { OptionSelect } from "@/components/common/option-select";
+import { SearchableSelect } from "@/components/common/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAction } from "@/hooks/use-action";
@@ -169,6 +170,7 @@ export function BoardView({
   const [local, setLocal] = useState(cards);
   const [showCancelled, setShowCancelled] = useState(false);
   const [owner, setOwner] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const { run } = useAction();
 
@@ -190,10 +192,17 @@ export function BoardView({
     [showCancelled],
   );
 
-  const filtered = useMemo(
-    () => (owner === "all" ? local : local.filter((c) => c.ownerId === owner)),
-    [local, owner],
-  );
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return local.filter((card) => {
+      if (owner !== "all" && card.ownerId !== owner) return false;
+      if (!needle) return true;
+      // Search the card, its owner and its parent task together.
+      return `${card.title} ${card.ownerName} ${card.taskTitle} ${card.label ?? ""}`
+        .toLowerCase()
+        .includes(needle);
+    });
+  }, [local, owner, search]);
 
   const byStatus = useMemo(() => {
     const map = new Map<SubtaskStatus, BoardCard[]>();
@@ -262,9 +271,15 @@ export function BoardView({
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold tracking-tight">Board</h1>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search subtasks…"
+            className="h-8 w-full sm:w-64"
+          />
           <div className="w-44">
-            <OptionSelect
+            <SearchableSelect
               size="sm"
               value={owner}
               onChange={setOwner}
@@ -273,6 +288,7 @@ export function BoardView({
                 ...contacts.map((c) => ({ value: c.id, label: c.name })),
               ]}
               ariaLabel="Filter by owner"
+              searchPlaceholder="Search contacts…"
             />
           </div>
           <div className="flex items-center gap-2">

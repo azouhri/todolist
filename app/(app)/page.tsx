@@ -28,6 +28,7 @@ export default async function DashboardPage() {
     daysWaiting: subtask.clocks.daysWaiting,
     daysSinceLastContact: subtask.clocks.daysSinceLastContact,
     isDueToday: subtask.clocks.isDueToday,
+    needsChasing: subtask.clocks.needsReminder,
   });
 
   const isOpen = (s: (typeof subtasks)[number]) =>
@@ -50,8 +51,10 @@ export default async function DashboardPage() {
       waiting: 0,
       needsReminder: 0,
       oldestDaysWaiting: null,
+      items: [],
     };
     bucket.waiting += 1;
+    bucket.items.push(toDashboardSubtask(subtask));
     if (subtask.clocks.needsReminder) bucket.needsReminder += 1;
     if (subtask.clocks.daysWaiting !== null) {
       bucket.oldestDaysWaiting = Math.max(
@@ -61,7 +64,13 @@ export default async function DashboardPage() {
     }
     buckets.set(subtask.owner.name, bucket);
   }
-  const waitingOn = [...buckets.values()].sort((a, b) => b.waiting - a.waiting);
+  for (const bucket of buckets.values()) {
+    bucket.items.sort((a, b) => (b.daysWaiting ?? 0) - (a.daysWaiting ?? 0));
+  }
+  // People you are most stuck on first: those needing a chase, then volume.
+  const waitingOn = [...buckets.values()].sort(
+    (a, b) => b.needsReminder - a.needsReminder || b.waiting - a.waiting,
+  );
 
   const dueSoon = subtasks
     .filter((s) => s.clocks.isOverdue || s.clocks.isDueToday)
