@@ -3,12 +3,10 @@
 import { useState } from "react";
 import {
   ArchiveIcon,
-  ArchiveRestoreIcon,
   ClockIcon,
   HistoryIcon,
   MoreHorizontalIcon,
   StarIcon,
-  StarOffIcon,
   Trash2Icon,
 } from "lucide-react";
 
@@ -35,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAction } from "@/hooks/use-action";
 import { fromDateInputValue, toDateInputValue } from "@/lib/date";
@@ -164,22 +163,6 @@ export function SubtaskRow({
               <HistoryIcon /> History
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() =>
-                run(() => setSubtaskFocus(subtask.id, !subtask.isFocused))
-              }
-            >
-              {subtask.isFocused ? <StarOffIcon /> : <StarIcon />}
-              {subtask.isFocused ? "Remove from focus" : "Add to focus"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                run(() => setSubtaskArchived(subtask.id, !subtask.isArchived))
-              }
-            >
-              {subtask.isArchived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-              {subtask.isArchived ? "Restore" : "Archive"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
               variant="destructive"
               onClick={() => run(() => deleteSubtask(subtask.id))}
             >
@@ -291,14 +274,50 @@ export function SubtaskRow({
           </span>
         )}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-7"
-          onClick={onOpenHistory}
-        >
-          <HistoryIcon /> History
-        </Button>
+        <div className="ml-auto flex items-center gap-3">
+          {subtask.status === "not_started" && (
+            <label
+              className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
+              title="Bring this into the current working horizon"
+            >
+              <Switch
+                checked={subtask.isFocused}
+                disabled={isPending}
+                onCheckedChange={(checked) =>
+                  run(() => setSubtaskFocus(subtask.id, checked === true))
+                }
+              />
+              <StarIcon
+                className={cn(
+                  "size-3.5",
+                  subtask.isFocused && "fill-amber-400 text-amber-500",
+                )}
+              />
+              Focus
+            </label>
+          )}
+
+          {isClosed && (
+            <label
+              className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
+              title="Put this away without changing its status"
+            >
+              <Switch
+                checked={subtask.isArchived}
+                disabled={isPending}
+                onCheckedChange={(checked) =>
+                  run(() => setSubtaskArchived(subtask.id, checked === true))
+                }
+              />
+              <ArchiveIcon className="size-3.5" />
+              Archive
+            </label>
+          )}
+
+          <Button variant="ghost" size="sm" className="h-7" onClick={onOpenHistory}>
+            <HistoryIcon /> History
+          </Button>
+        </div>
       </div>
     </div>
   );
