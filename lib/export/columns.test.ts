@@ -22,6 +22,8 @@ function subtask(overrides: Partial<EnrichedSubtask> = {}): EnrichedSubtask {
     alertAfterDays: null,
     sortOrder: 1000,
     boardOrder: 1000,
+    isFocused: false,
+    isArchived: false,
     createdAt: TODAY,
     updatedAt: TODAY,
     owner: { id: "c1", name: "Priya Raman", email: null, isSelf: false },

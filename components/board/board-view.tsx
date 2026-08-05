@@ -23,9 +23,16 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import { moveSubtaskOnBoard } from "@/app/actions/ordering";
-import { OverdueBadge, PriorityBadge, ReminderBadge } from "@/components/common/badges";
+import {
+  OverdueBadge,
+  PriorityBadge,
+  ReminderBadge,
+  STATUS_ACCENT,
+} from "@/components/common/badges";
 import { SearchableSelect } from "@/components/common/searchable-select";
 import { Badge } from "@/components/ui/badge";
+import { StarIcon } from "lucide-react";
+
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +60,8 @@ export type BoardCard = {
   needsReminder: boolean;
   isOverdue: boolean;
   isDueToday: boolean;
+  isFocused: boolean;
+  isArchived: boolean;
 };
 
 const VISIBLE_STATUSES = SUBTASK_STATUSES.filter((s) => s !== "cancelled");
@@ -67,13 +76,19 @@ function SubtaskCard({
   return (
     <Card
       className={cn(
-        "gap-2 p-3 shadow-none transition-shadow",
+        "gap-2 border-l-4 p-3 shadow-none transition-shadow",
+        STATUS_ACCENT[card.status],
         dragging && "shadow-lg",
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm leading-snug font-medium">{card.title}</span>
-        <PriorityBadge priority={card.priority} />
+        <span className="flex shrink-0 items-center gap-1">
+          {card.isFocused && (
+            <StarIcon className="size-3.5 fill-amber-400 text-amber-500" />
+          )}
+          <PriorityBadge priority={card.priority} />
+        </span>
       </div>
 
       <p className="truncate text-xs text-muted-foreground">
@@ -169,6 +184,8 @@ export function BoardView({
 }) {
   const [local, setLocal] = useState(cards);
   const [showCancelled, setShowCancelled] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [focusOnly, setFocusOnly] = useState(false);
   const [owner, setOwner] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -196,13 +213,16 @@ export function BoardView({
     const needle = search.trim().toLowerCase();
     return local.filter((card) => {
       if (owner !== "all" && card.ownerId !== owner) return false;
+      if (!showArchived && card.isArchived) return false;
+      // Focus trims the future, never what is already in motion.
+      if (focusOnly && card.status === "not_started" && !card.isFocused) return false;
       if (!needle) return true;
       // Search the card, its owner and its parent task together.
       return `${card.title} ${card.ownerName} ${card.taskTitle} ${card.label ?? ""}`
         .toLowerCase()
         .includes(needle);
     });
-  }, [local, owner, search]);
+  }, [local, owner, search, showArchived, focusOnly]);
 
   const byStatus = useMemo(() => {
     const map = new Map<SubtaskStatus, BoardCard[]>();
@@ -290,6 +310,26 @@ export function BoardView({
               ariaLabel="Filter by owner"
               searchPlaceholder="Search contacts…"
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="focus-only"
+              checked={focusOnly}
+              onCheckedChange={(checked) => setFocusOnly(checked === true)}
+            />
+            <Label htmlFor="focus-only" className="text-sm font-normal">
+              Focus only
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-archived"
+              checked={showArchived}
+              onCheckedChange={(checked) => setShowArchived(checked === true)}
+            />
+            <Label htmlFor="show-archived" className="text-sm font-normal">
+              Show archived
+            </Label>
           </div>
           <div className="flex items-center gap-2">
             <Switch

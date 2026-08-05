@@ -1,10 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { ClockIcon, HistoryIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  ClockIcon,
+  HistoryIcon,
+  MoreHorizontalIcon,
+  StarIcon,
+  StarOffIcon,
+  Trash2Icon,
+} from "lucide-react";
 
-import { changeSubtaskStatus, deleteSubtask, updateSubtask } from "@/app/actions/subtasks";
-import { OverdueBadge, PriorityBadge, ReminderBadge } from "@/components/common/badges";
+import {
+  changeSubtaskStatus,
+  deleteSubtask,
+  setSubtaskArchived,
+  setSubtaskFocus,
+  updateSubtask,
+} from "@/app/actions/subtasks";
+import {
+  OverdueBadge,
+  PriorityBadge,
+  ReminderBadge,
+  STATUS_ACCENT,
+} from "@/components/common/badges";
 import { SearchableSelect } from "@/components/common/searchable-select";
 import { OptionSelect, optionsFrom } from "@/components/common/option-select";
 import { Button } from "@/components/ui/button";
@@ -38,6 +58,8 @@ export type SubtaskRowData = {
   requestedDate: Date | null;
   dueDate: Date | null;
   alertAfterDays: number | null;
+  isFocused: boolean;
+  isArchived: boolean;
   clocks: {
     daysWaiting: number | null;
     daysSinceLastContact: number | null;
@@ -78,9 +100,11 @@ export function SubtaskRow({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-lg border bg-card p-3",
+        "flex flex-col gap-2 rounded-lg border border-l-4 bg-card p-3 transition-colors",
+        STATUS_ACCENT[subtask.status],
         highlighted && "ring-2 ring-ring",
-        isClosed && "opacity-70",
+        isClosed && "opacity-60",
+        subtask.isArchived && "opacity-45",
       )}
     >
       <div className="flex items-center gap-2">
@@ -104,6 +128,14 @@ export function SubtaskRow({
           )}
         />
 
+        {subtask.isFocused && (
+          <StarIcon className="size-4 shrink-0 fill-amber-400 text-amber-500" />
+        )}
+        {subtask.isArchived && (
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            Archived
+          </span>
+        )}
         {subtask.clocks.needsReminder && (
           <Tooltip>
             <TooltipTrigger render={<span />}>
@@ -130,6 +162,22 @@ export function SubtaskRow({
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={onOpenHistory}>
               <HistoryIcon /> History
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                run(() => setSubtaskFocus(subtask.id, !subtask.isFocused))
+              }
+            >
+              {subtask.isFocused ? <StarOffIcon /> : <StarIcon />}
+              {subtask.isFocused ? "Remove from focus" : "Add to focus"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                run(() => setSubtaskArchived(subtask.id, !subtask.isArchived))
+              }
+            >
+              {subtask.isArchived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
+              {subtask.isArchived ? "Restore" : "Archive"}
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"

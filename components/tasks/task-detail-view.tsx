@@ -5,10 +5,18 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { ArrowLeftIcon, CopyIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ArrowLeftIcon,
+  ChevronRightIcon,
+  CopyIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react";
 
 import { reorderSubtask } from "@/app/actions/ordering";
-import { createSubtask } from "@/app/actions/subtasks";
+import { archiveDoneSubtasks, createSubtask } from "@/app/actions/subtasks";
 import { deleteTask, setTaskManualStatus } from "@/app/actions/tasks";
 import { PriorityBadge, StatusBadge } from "@/components/common/badges";
 import { SearchableSelect } from "@/components/common/searchable-select";
@@ -27,8 +35,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useAction } from "@/hooks/use-action";
 import { formatDate } from "@/lib/date";
+import { cn } from "@/lib/utils";
 import type { Priority, TaskStatus } from "@/lib/domain/enums";
 
 import { CloneTaskDialog } from "./clone-task-dialog";
@@ -83,6 +93,9 @@ export function TaskDetailView({
   const [historyFor, setHistoryFor] = useState<string | null>(
     focusSubtaskId ?? null,
   );
+  const [focusOnly, setFocusOnly] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [showDone, setShowDone] = useState(false);
   const { run, isPending } = useAction();
   const router = useRouter();
 
@@ -99,6 +112,21 @@ export function TaskDetailView({
       .map((id) => byId.get(id))
       .filter((s): s is DetailSubtask => Boolean(s));
   }, [subtasks, order]);
+
+  const visible = useMemo(
+    () =>
+      ordered.filter((s) => {
+        if (!showArchived && s.isArchived) return false;
+        // Focus is about future work; it never hides what is already moving.
+        if (focusOnly && s.status === "not_started" && !s.isFocused) return false;
+        return true;
+      }),
+    [ordered, showArchived, focusOnly],
+  );
+
+  const live = visible.filter((s) => s.status !== "done");
+  const done = visible.filter((s) => s.status === "done");
+  const hiddenCount = ordered.length - visible.length;
 
   const historySubject = historyFor
     ? (subtasks.find((s) => s.id === historyFor) ?? null)
@@ -231,6 +259,37 @@ export function TaskDetailView({
         </p>
       )}
 
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-muted/30 px-3 py-2">
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {live.length} open · {done.length} done
+          {hiddenCount > 0 && ` · ${hiddenCount} hidden`}
+        </span>
+
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={focusOnly} onCheckedChange={(v) => setFocusOnly(v === true)} />
+          Focus only
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <Switch
+            checked={showArchived}
+            onCheckedChange={(v) => setShowArchived(v === true)}
+          />
+          Show archived
+        </label>
+
+        {done.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => run(() => archiveDoneSubtasks(task.id))}
+          >
+            <ArchiveIcon /> Archive done
+          </Button>
+        )}
+      </div>
+
       {ordered.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm text-muted-foreground">
@@ -238,9 +297,13 @@ export function TaskDetailView({
           </p>
         </div>
       ) : (
-        <VerticalSortable id="subtasks" ids={order} onDragEnd={handleDragEnd}>
+        <VerticalSortable
+          id="subtasks"
+          ids={live.map((s) => s.id)}
+          onDragEnd={handleDragEnd}
+        >
           <ul className="space-y-2">
-            {ordered.map((subtask) => (
+            {live.map((subtask) => (
               <li key={subtask.id}>
                 <SortableRow id={subtask.id}>
                   {(handle) => (
@@ -257,6 +320,38 @@ export function TaskDetailView({
             ))}
           </ul>
         </VerticalSortable>
+      )}
+
+      {done.length > 0 && (
+        <div className="rounded-lg border">
+          <button
+            type="button"
+            onClick={() => setShowDone((v) => !v)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium transition-colors hover:bg-accent/40"
+          >
+            <ChevronRightIcon
+              className={cn("size-4 transition-transform", showDone && "rotate-90")}
+            />
+            Done
+            <span className="text-muted-foreground tabular-nums">({done.length})</span>
+          </button>
+
+          {showDone && (
+            <ul className="space-y-2 border-t p-2">
+              {done.map((subtask) => (
+                <li key={subtask.id}>
+                  <SubtaskRow
+                    subtask={subtask}
+                    contacts={contacts}
+                    handle={<span className="inline-block size-6" />}
+                    highlighted={subtask.id === focusSubtaskId}
+                    onOpenHistory={() => setHistoryFor(subtask.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       <TaskFormDialog

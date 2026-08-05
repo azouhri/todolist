@@ -25,6 +25,8 @@ export default async function BoardPage() {
         needsReminder: subtask.clocks.needsReminder,
         isOverdue: subtask.clocks.isOverdue,
         isDueToday: subtask.clocks.isDueToday,
+        isFocused: subtask.isFocused,
+        isArchived: subtask.isArchived,
       }))}
       contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
     />

@@ -54,6 +54,8 @@ export type SubtaskRow = {
   alert_after_days: number | null;
   sort_order: number;
   board_order: number;
+  is_focused: boolean;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -137,6 +139,10 @@ export type Subtask = {
   alertAfterDays: number | null;
   sortOrder: number;
   boardOrder: number;
+  /** Opted in to the current working horizon. */
+  isFocused: boolean;
+  /** Finished and put away; still counts towards progress. */
+  isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -156,6 +162,8 @@ export function toSubtask(row: SubtaskRow): Subtask {
     alertAfterDays: row.alert_after_days,
     sortOrder: row.sort_order,
     boardOrder: row.board_order,
+    isFocused: row.is_focused,
+    isArchived: row.is_archived,
     createdAt: required(row.created_at),
     updatedAt: required(row.updated_at),
   };
@@ -218,6 +226,8 @@ export const SUBTASK_COLUMNS: Record<string, string> = {
   alertAfterDays: "alert_after_days",
   sortOrder: "sort_order",
   boardOrder: "board_order",
+  isFocused: "is_focused",
+  isArchived: "is_archived",
 };
 
 export const TASK_COLUMNS: Record<string, string> = {

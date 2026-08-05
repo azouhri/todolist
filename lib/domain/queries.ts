@@ -48,6 +48,8 @@ export type EnrichedSubtask = {
   alertAfterDays: number | null;
   sortOrder: number;
   boardOrder: number;
+  isFocused: boolean;
+  isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
   owner: { id: string; name: string; email: string | null; isSelf: boolean };

@@ -51,6 +51,8 @@ export default async function TaskDetailPage({
           requestedDate: subtask.requestedDate,
           dueDate: subtask.dueDate,
           alertAfterDays: subtask.alertAfterDays,
+        isFocused: subtask.isFocused,
+        isArchived: subtask.isArchived,
           clocks: {
             daysWaiting: subtask.clocks.daysWaiting,
             daysSinceLastContact: subtask.clocks.daysSinceLastContact,

@@ -274,3 +274,71 @@ export async function deleteHistoryEvent(id: string): Promise<ActionResult> {
     return ok(undefined, "Event removed.");
   });
 }
+
+/**
+ * Focus is the opt-in horizon: it lets the full lifecycle of every offer be
+ * captured without all of it competing for attention today.
+ */
+export async function setSubtaskFocus(
+  id: string,
+  isFocused: boolean,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    const supabase = await getDataClient();
+    const { error } = await supabase
+      .from("subtasks")
+      .update({ is_focused: isFocused })
+      .eq("id", id);
+    if (error) throw new Error(`setSubtaskFocus: ${error.message}`);
+
+    revalidateAll();
+    return ok(undefined, isFocused ? "Added to focus." : "Removed from focus.");
+  });
+}
+
+/**
+ * Archiving hides finished work from the default views. It does not change the
+ * status, so progress and the task roll-up are unaffected.
+ */
+export async function setSubtaskArchived(
+  id: string,
+  isArchived: boolean,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    const supabase = await getDataClient();
+    const { error } = await supabase
+      .from("subtasks")
+      .update({ is_archived: isArchived })
+      .eq("id", id);
+    if (error) throw new Error(`setSubtaskArchived: ${error.message}`);
+
+    revalidateAll();
+    return ok(undefined, isArchived ? "Archived." : "Restored.");
+  });
+}
+
+/** Clears out everything already finished on one task, in a single step. */
+export async function archiveDoneSubtasks(
+  taskId: string,
+): Promise<ActionResult<{ archived: number }>> {
+  return guarded(async () => {
+    const supabase = await getDataClient();
+    const { data, error } = await supabase
+      .from("subtasks")
+      .update({ is_archived: true })
+      .eq("task_id", taskId)
+      .eq("status", "done")
+      .eq("is_archived", false)
+      .select("id");
+    if (error) throw new Error(`archiveDoneSubtasks: ${error.message}`);
+
+    const archived = (data as { id: string }[] | null)?.length ?? 0;
+    revalidateAll();
+    return ok(
+      { archived },
+      archived === 0
+        ? "Nothing finished to archive."
+        : `Archived ${archived} finished subtask${archived === 1 ? "" : "s"}.`,
+    );
+  });
+}
