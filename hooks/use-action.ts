@@ -17,6 +17,21 @@ type RunOptions<T> = {
  * reported the same way everywhere, and callers get an `onError` hook to revert
  * optimistic UI (spec: DnD reverts on a failed persist).
  */
+/**
+ * A dropped connection rather than a rejected request: DNS failure, offline,
+ * VPN blip. The browser surfaces these as a bare TypeError ("Failed to fetch"),
+ * which says nothing about whether the server acted on the request.
+ */
+function isNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === "TypeError" ||
+    /failed to fetch|networkerror|load failed|err_name_not_resolved|err_network|err_internet_disconnected/i.test(
+      error.message,
+    )
+  );
+}
+
 export function useAction() {
   const [isPending, startTransition] = useTransition();
 
@@ -27,9 +42,16 @@ export function useAction() {
         try {
           result = await action();
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Request failed.";
-          toast.error(message);
+          // A server action that throws here never delivered its response —
+          // but it may well have completed on the server first. Saying
+          // "failed" would be a lie that invites a retry and a duplicate.
+          const message = isNetworkError(error)
+            ? "Lost connection before the server replied. Your change may already have been saved — refresh the page before trying again."
+            : error instanceof Error
+              ? error.message
+              : "Request failed.";
+
+          toast.error(message, { duration: 10_000 });
           options.onError?.(message);
           return;
         }
