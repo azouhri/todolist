@@ -5,7 +5,12 @@ import { z } from "zod";
 
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 import { cloneSubtasks } from "@/lib/domain/clone";
-import { manualTaskStatusSchema, prioritySchema } from "@/lib/domain/enums";
+import {
+  manualTaskStatusSchema,
+  prioritySchema,
+  TASK_STATUS_LABELS,
+  type TaskStatus,
+} from "@/lib/domain/enums";
 import { ORDER_STEP } from "@/lib/domain/sort";
 import { syncTaskCompletion } from "@/lib/domain/sync";
 import { guarded } from "@/lib/server-action";
@@ -133,8 +138,9 @@ export async function deleteTask(id: string): Promise<ActionResult> {
 }
 
 /**
- * "lost" and "cancelled" are the only statuses a user sets by hand; everything
- * else is rolled up from subtasks. Passing null hands control back to the roll-up.
+ * "on hold", "lost" and "cancelled" are the only statuses a user sets by hand;
+ * everything else is rolled up from subtasks. Passing null hands control back
+ * to the roll-up.
  */
 export async function setTaskManualStatus(
   id: string,
@@ -144,7 +150,7 @@ export async function setTaskManualStatus(
     if (status !== null) {
       const parsed = manualTaskStatusSchema.safeParse(status);
       if (!parsed.success) {
-        return fail("Only Lost and Cancelled can be set manually.");
+        return fail("Only On hold, Lost and Cancelled can be set manually.");
       }
     }
 
@@ -158,7 +164,10 @@ export async function setTaskManualStatus(
     revalidateAll();
     return ok(
       undefined,
-      status === null ? "Status back to automatic." : `Task marked ${status}.`,
+      status === null
+        ? "Status back to automatic."
+        : // Label, not the raw enum: "on_hold" is not something to show a user.
+          `Task marked ${TASK_STATUS_LABELS[status as TaskStatus].toLowerCase()}.`,
     );
   });
 }

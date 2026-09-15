@@ -17,6 +17,7 @@ const STATUS_CLASSES: Record<TaskStatus, string> = {
   in_progress: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   waiting: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   blocked: "bg-red-500/15 text-red-700 dark:text-red-300",
+  on_hold: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
   done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   lost: "bg-zinc-500/20 text-zinc-700 line-through dark:text-zinc-300",
   cancelled: "bg-zinc-500/20 text-zinc-700 line-through dark:text-zinc-300",
@@ -32,6 +33,9 @@ export const STATUS_ACCENT: Record<TaskStatus, string> = {
   in_progress: "border-l-blue-500 bg-blue-500/[0.04]",
   waiting: "border-l-amber-500 bg-amber-500/[0.05]",
   blocked: "border-l-red-500 bg-red-500/[0.05]",
+  // No row tint: a hold is dormant, so it should recede rather than compete
+  // with the statuses that actually want attention.
+  on_hold: "border-l-violet-500",
   done: "border-l-emerald-500/70",
   lost: "border-l-zinc-400",
   cancelled: "border-l-zinc-400",

@@ -1,6 +1,12 @@
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 
-import { REMINDER_EVENT_TYPES, type HistoryEventType, type Priority, type SubtaskStatus } from "./enums";
+import {
+  isDormantSubtaskStatus,
+  REMINDER_EVENT_TYPES,
+  type HistoryEventType,
+  type Priority,
+  type SubtaskStatus,
+} from "./enums";
 
 /**
  * Spec §5: two independent clocks.
@@ -61,7 +67,10 @@ export function computeClocks(
   const reference = startOfDay(today);
 
   const isWaiting = subtask.status === "waiting";
-  const isOpen = subtask.status !== "done" && subtask.status !== "cancelled";
+  // A parked subtask counts as dormant alongside done and cancelled: its due
+  // date is still recorded, but a hold we chose is not a deadline we missed,
+  // so it must not raise an overdue flag.
+  const isOpen = !isDormantSubtaskStatus(subtask.status);
 
   const daysWaiting =
     isWaiting && subtask.requestedDate

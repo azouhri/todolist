@@ -4,7 +4,11 @@ import {
   type DashboardSubtask,
   type OwnerBucket,
 } from "@/components/dashboard/dashboard-view";
-import { isFinishedTaskStatus } from "@/lib/domain/enums";
+import {
+  isDormantSubtaskStatus,
+  isFinishedTaskStatus,
+  type TaskStatus,
+} from "@/lib/domain/enums";
 import { listSubtasksWithTask, listTasks } from "@/lib/domain/queries";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +19,12 @@ export default async function DashboardPage() {
     listTasks(),
   ]);
 
+  // The widgets group their subtasks under the parent task, which means each
+  // line needs the task's rolled-up status for the collapsed summary row.
+  const taskStatusById = new Map<string, TaskStatus>(
+    tasks.map((task) => [task.id, task.status]),
+  );
+
   const toDashboardSubtask = (
     subtask: (typeof subtasks)[number],
   ): DashboardSubtask => ({
@@ -22,6 +32,7 @@ export default async function DashboardPage() {
     taskId: subtask.task.id,
     title: subtask.title,
     taskTitle: subtask.task.title,
+    taskStatus: taskStatusById.get(subtask.task.id) ?? "not_started",
     ownerName: subtask.owner.name,
     status: subtask.status,
     priority: subtask.priority,
@@ -32,8 +43,10 @@ export default async function DashboardPage() {
     needsChasing: subtask.clocks.needsReminder,
   });
 
+  // Finished *or* parked: a subtask nobody is working on has no claim on
+  // today's attention, whichever of the two reasons put it there.
   const isOpen = (s: (typeof subtasks)[number]) =>
-    s.status !== "done" && s.status !== "cancelled";
+    !isDormantSubtaskStatus(s.status);
 
   const needsReminder = subtasks
     .filter((s) => s.clocks.needsReminder)

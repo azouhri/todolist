@@ -53,8 +53,45 @@ describe("computeTaskStatus", () => {
     expect(computeTaskStatus([at("done")], "cancelled")).toBe("cancelled");
   });
 
+  it("lets a manual on_hold park a task whose subtasks are still live", () => {
+    expect(computeTaskStatus([at("in_progress")], "on_hold")).toBe("on_hold");
+    expect(computeTaskStatus([at("blocked")], "on_hold")).toBe("on_hold");
+  });
+
   it("returns to the roll-up once the override is cleared", () => {
     expect(computeTaskStatus([at("blocked")], null)).toBe("blocked");
+  });
+
+  it("ignores a status that cannot be set by hand", () => {
+    // Only the manual set overrides; a stray value falls through to the roll-up.
+    expect(computeTaskStatus([at("blocked")], "in_progress")).toBe("blocked");
+  });
+});
+
+describe("computeTaskStatus — on hold", () => {
+  it("never masks work that is still moving", () => {
+    expect(computeTaskStatus([at("in_progress"), at("on_hold")])).toBe(
+      "in_progress",
+    );
+    expect(computeTaskStatus([at("waiting"), at("on_hold")])).toBe("waiting");
+    expect(computeTaskStatus([at("blocked"), at("on_hold")])).toBe("blocked");
+  });
+
+  it("surfaces once nothing is moving", () => {
+    expect(computeTaskStatus([at("on_hold")])).toBe("on_hold");
+    expect(computeTaskStatus([at("on_hold"), at("not_started")])).toBe("on_hold");
+  });
+
+  it("beats done while parked work remains", () => {
+    expect(computeTaskStatus([at("on_hold"), at("done")])).toBe("on_hold");
+  });
+
+  it("does not stop a fully finished task reading as done", () => {
+    expect(computeTaskStatus([at("done"), at("done")])).toBe("done");
+  });
+
+  it("is ignored once the parked subtask is cancelled outright", () => {
+    expect(computeTaskStatus([at("cancelled"), at("done")])).toBe("done");
   });
 });
 
@@ -69,6 +106,13 @@ describe("isTaskComplete", () => {
 
   it("is false while anything is open", () => {
     expect(isTaskComplete([at("done"), at("waiting")])).toBe(false);
+  });
+
+  // Parked work is unfinished work: completedAt must stay null so the task is
+  // never reported as delivered while something is waiting to be resumed.
+  it("is false while a subtask is parked", () => {
+    expect(isTaskComplete([at("done"), at("on_hold")])).toBe(false);
+    expect(computeTaskCompletedAt([at("done", new Date()), at("on_hold")])).toBeNull();
   });
 });
 
@@ -97,5 +141,15 @@ describe("computeProgress", () => {
 
   it("is zero for an empty task", () => {
     expect(computeProgress([])).toEqual({ done: 0, total: 0, percent: 0 });
+  });
+
+  // Unlike cancelled, a parked subtask still counts against the total: it is
+  // work that may yet come back, so hiding it would overstate progress.
+  it("still counts parked subtasks as outstanding", () => {
+    expect(computeProgress([at("done"), at("on_hold")])).toEqual({
+      done: 1,
+      total: 2,
+      percent: 50,
+    });
   });
 });

@@ -171,4 +171,47 @@ describe("due dates", () => {
     );
     expect(clocks.isOverdue).toBe(false);
   });
+
+  // A hold we chose is not a deadline we missed.
+  it("does not flag parked subtasks", () => {
+    const past = computeClocks(
+      waiting({ status: "on_hold", dueDate: subDays(TODAY, 10) }),
+      DEFAULT_ALERT,
+      TODAY,
+    );
+    expect(past.isOverdue).toBe(false);
+
+    const today = computeClocks(
+      waiting({ status: "on_hold", dueDate: TODAY }),
+      DEFAULT_ALERT,
+      TODAY,
+    );
+    expect(today.isDueToday).toBe(false);
+  });
+
+  // Still flagged: blocked work has a real deadline problem to escalate.
+  it("keeps flagging blocked subtasks", () => {
+    const clocks = computeClocks(
+      waiting({ status: "blocked", dueDate: subDays(TODAY, 10) }),
+      DEFAULT_ALERT,
+      TODAY,
+    );
+    expect(clocks.isOverdue).toBe(true);
+  });
+});
+
+describe("parking a subtask", () => {
+  it("stops both clocks without discarding the request", () => {
+    const clocks = computeClocks(
+      waiting({ status: "on_hold", requestedDate: subDays(TODAY, 30) }),
+      DEFAULT_ALERT,
+      TODAY,
+    );
+
+    // Nobody is chased while it is parked...
+    expect(clocks.daysWaiting).toBeNull();
+    expect(clocks.needsReminder).toBe(false);
+    // ...but the original request is still on record for when it resumes.
+    expect(clocks.daysSinceLastContact).toBe(30);
+  });
 });

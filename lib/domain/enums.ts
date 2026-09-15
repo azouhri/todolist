@@ -15,18 +15,20 @@ export const SUBTASK_STATUSES = [
   "in_progress",
   "waiting",
   "blocked",
+  "on_hold",
   "done",
   "cancelled",
 ] as const;
 export const subtaskStatusSchema = z.enum(SUBTASK_STATUSES);
 export type SubtaskStatus = z.infer<typeof subtaskStatusSchema>;
 
-/** Task status adds the two manual-override values on top of the roll-up set. */
+/** Task status adds the manual-override values on top of the roll-up set. */
 export const TASK_STATUSES = [
   "not_started",
   "in_progress",
   "waiting",
   "blocked",
+  "on_hold",
   "done",
   "lost",
   "cancelled",
@@ -34,10 +36,22 @@ export const TASK_STATUSES = [
 export const taskStatusSchema = z.enum(TASK_STATUSES);
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 
-/** Only these two can be set manually; everything else is derived. */
-export const MANUAL_TASK_STATUSES = ["lost", "cancelled"] as const;
+/**
+ * Only these can be set manually; everything else is derived.
+ *
+ * "on_hold" is here as well as in the roll-up set because a hold is a decision
+ * taken about the whole task ("park this until Q3"), not something you can
+ * always express by editing subtasks one at a time.
+ */
+export const MANUAL_TASK_STATUSES = ["on_hold", "lost", "cancelled"] as const;
 export const manualTaskStatusSchema = z.enum(MANUAL_TASK_STATUSES);
 export type ManualTaskStatus = z.infer<typeof manualTaskStatusSchema>;
+
+export function isManualTaskStatus(
+  status: TaskStatus,
+): status is ManualTaskStatus {
+  return (MANUAL_TASK_STATUSES as readonly TaskStatus[]).includes(status);
+}
 
 /**
  * Terminal outcomes: the work is over, however it ended. Views that show "what
@@ -52,6 +66,26 @@ export const FINISHED_TASK_STATUSES: readonly TaskStatus[] = [
 
 export function isFinishedTaskStatus(status: TaskStatus): boolean {
   return FINISHED_TASK_STATUSES.includes(status);
+}
+
+/**
+ * Statuses that take a subtask out of the "what needs me" conversation: the
+ * work is over, or it has been deliberately parked. Due dates stop raising
+ * flags for these and the dashboard's attention widgets skip them.
+ *
+ * "on_hold" belongs here but deliberately *not* in the finished set above. A
+ * hold is a pause, not an outcome — the subtask keeps its dates and clocks so
+ * nothing is lost if it comes back; they simply stop nagging while it is
+ * parked.
+ */
+export const DORMANT_SUBTASK_STATUSES: readonly SubtaskStatus[] = [
+  "on_hold",
+  "done",
+  "cancelled",
+];
+
+export function isDormantSubtaskStatus(status: SubtaskStatus): boolean {
+  return DORMANT_SUBTASK_STATUSES.includes(status);
 }
 
 /**
@@ -98,6 +132,7 @@ export const SUBTASK_STATUS_LABELS: Record<SubtaskStatus, string> = {
   in_progress: "In progress",
   waiting: "Waiting",
   blocked: "Blocked",
+  on_hold: "On hold",
   done: "Done",
   cancelled: "Cancelled",
 };
@@ -107,6 +142,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   in_progress: "In progress",
   waiting: "Waiting",
   blocked: "Blocked",
+  on_hold: "On hold",
   done: "Done",
   lost: "Lost",
   cancelled: "Cancelled",

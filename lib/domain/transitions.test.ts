@@ -56,3 +56,41 @@ describe("applyStatusTransition", () => {
     });
   });
 });
+
+describe("applyStatusTransition — on hold", () => {
+  it("keeps the requestedDate so the waiting clock can resume", () => {
+    const result = applyStatusTransition("waiting", "on_hold", EARLIER, NOW);
+
+    expect(result.patch.requestedDate).toBeUndefined();
+    expect(result.patch.completedAt).toBeNull();
+    expect(result.notice).toBe("Parked — reminders paused.");
+  });
+
+  it("says nothing about reminders when none were running", () => {
+    const result = applyStatusTransition("in_progress", "on_hold", null, NOW);
+    expect(result.notice).toBeNull();
+  });
+
+  it("reopens a done subtask rather than leaving it stamped complete", () => {
+    const result = applyStatusTransition("done", "on_hold", null, NOW);
+    expect(result.patch.completedAt).toBeNull();
+  });
+
+  it("resumes to waiting on the original clock", () => {
+    const result = applyStatusTransition("on_hold", "waiting", EARLIER, NOW);
+
+    // The owner has owed this since EARLIER; the hold was on our side.
+    expect(result.patch.requestedDate).toBeUndefined();
+    expect(result.event).toEqual({
+      type: "status_change",
+      note: "On hold → Waiting",
+    });
+  });
+
+  it("starts the clock when a never-requested subtask resumes into waiting", () => {
+    const result = applyStatusTransition("on_hold", "waiting", null, NOW);
+
+    expect(result.patch.requestedDate).toEqual(NOW);
+    expect(result.event?.type).toBe("requested");
+  });
+});

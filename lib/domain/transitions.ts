@@ -61,6 +61,15 @@ export function applyStatusTransition(
       if (existingRequestedDate) notice = "Waiting and reminder clocks cleared.";
       break;
 
+    case "on_hold":
+      patch.completedAt = null;
+      // requestedDate survives a hold on purpose: parking is a decision on our
+      // side, not the owner forgetting, so resuming should pick the waiting
+      // clock back up rather than pretend the request was never made. Both
+      // clocks are inert while held — neither runs outside "waiting".
+      if (current === "waiting") notice = "Parked — reminders paused.";
+      break;
+
     case "in_progress":
     case "blocked":
     case "cancelled":

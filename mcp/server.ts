@@ -334,7 +334,7 @@ server.registerTool(
   {
     title: "Change a subtask status",
     description:
-      "Moves a subtask to a new status, applying the same clock rules as the app (entering 'waiting' starts the waiting clock, 'done' stamps completion, 'not_started' clears both).",
+      "Moves a subtask to a new status, applying the same clock rules as the app (entering 'waiting' starts the waiting clock, 'done' stamps completion, 'not_started' clears both). Use 'on_hold' when work is deliberately parked and may or may not resume — unlike 'blocked' it is waiting on a decision, not an obstacle, so it stops being chased and stops going overdue while keeping its dates for when it comes back.",
     inputSchema: {
       subtaskId: z.string(),
       status: subtaskStatusSchema,

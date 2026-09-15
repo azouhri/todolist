@@ -66,6 +66,7 @@ export type DetailSubtask = SubtaskRowData & {
 
 const MANUAL_STATUS_OPTIONS = [
   { value: "auto", label: "Automatic (from subtasks)" },
+  { value: "on_hold", label: "On hold" },
   { value: "lost", label: "Lost" },
   { value: "cancelled", label: "Cancelled" },
 ] as const;

@@ -1,4 +1,4 @@
-import type { SubtaskStatus, TaskStatus } from "./enums";
+import { isManualTaskStatus, type SubtaskStatus, type TaskStatus } from "./enums";
 
 export type RollupSubtask = {
   status: SubtaskStatus;
@@ -7,10 +7,15 @@ export type RollupSubtask = {
 
 /**
  * Spec §5: a task's status is derived from its subtasks — never stored.
- * Cancelled subtasks are ignored entirely; a manual "lost"/"cancelled" on the
- * task wins until it is cleared.
+ * Cancelled subtasks are ignored entirely; a manual status on the task wins
+ * until it is cleared.
  *
- * Precedence: blocked > waiting > in_progress > done > not_started.
+ * Precedence: blocked > waiting > in_progress > on_hold > done > not_started.
+ *
+ * "on_hold" ranks below everything live on purpose. A hold is the absence of
+ * activity, so it should never mask activity: a task with one parked subtask
+ * and three in flight is still in progress. It only surfaces once nothing is
+ * actually moving.
  *
  * One deliberate refinement of that list: "done" only wins when *every*
  * non-cancelled subtask is done. A task holding one done subtask and three
@@ -22,7 +27,7 @@ export function computeTaskStatus(
   subtasks: readonly RollupSubtask[],
   manualStatus?: TaskStatus | null,
 ): TaskStatus {
-  if (manualStatus === "lost" || manualStatus === "cancelled") {
+  if (manualStatus && isManualTaskStatus(manualStatus)) {
     return manualStatus;
   }
 
@@ -34,6 +39,10 @@ export function computeTaskStatus(
   if (active.some((s) => s.status === "in_progress")) return "in_progress";
 
   if (active.every((s) => s.status === "done")) return "done";
+
+  // Nothing is moving. A parked subtask outranks a finished or unstarted one:
+  // "on hold" is the honest answer for why this task is not progressing.
+  if (active.some((s) => s.status === "on_hold")) return "on_hold";
 
   // Only done + not_started remain, and not all are done.
   if (active.some((s) => s.status === "done")) return "in_progress";
