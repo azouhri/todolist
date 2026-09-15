@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { ExportButton } from "@/components/export/export-dialog";
 import { useAction } from "@/hooks/use-action";
 import { formatDate } from "@/lib/date";
@@ -44,6 +45,8 @@ import {
   PRIORITY_LABELS,
   TASK_STATUSES,
   TASK_STATUS_LABELS,
+  isFinishedTaskStatus,
+  showsFinishedTasks,
   type Priority,
   type TaskStatus,
 } from "@/lib/domain/enums";
@@ -111,6 +114,9 @@ export function TaskListView({ tasks }: { tasks: TaskListItem[] }) {
   const [label, setLabel] = useState<string>("all");
   const [sort, setSort] = useState<SortMode>("manual");
 
+  // Finished work is hidden by default — the list is for what still needs you.
+  const [showFinished, setShowFinished] = useState(false);
+
   const [formOpen, setFormOpen] = useState(false);
   const [formValues, setFormValues] = useState<TaskFormValues>(emptyTaskForm);
   const [cloning, setCloning] = useState<TaskListItem | null>(null);
@@ -135,7 +141,14 @@ export function TaskListView({ tasks }: { tasks: TaskListItem[] }) {
 
   const filtersActive =
     search.trim() !== "" || status !== "all" || priority !== "all" || label !== "all";
+  // Hiding finished work is the default view, not a filter, so it must not
+  // switch dragging off — reordering still maps through the full order below.
   const canDrag = sort === "manual" && !filtersActive;
+
+  // Asking for a terminal status explicitly outranks the default: picking
+  // "Done" from the dropdown should show done tasks, not an empty list.
+  const askedForFinished = status !== "all" && isFinishedTaskStatus(status);
+  const finishedVisible = showsFinishedTasks(showFinished, status);
 
   const visible = useMemo(() => {
     const byId = new Map(tasks.map((t) => [t.id, t]));
@@ -145,6 +158,7 @@ export function TaskListView({ tasks }: { tasks: TaskListItem[] }) {
 
     const needle = search.trim().toLowerCase();
     const filtered = ordered.filter((task) => {
+      if (!finishedVisible && isFinishedTaskStatus(task.status)) return false;
       if (status !== "all" && task.status !== status) return false;
       if (priority !== "all" && task.priority !== priority) return false;
       if (label !== "all" && task.label !== label) return false;
@@ -180,7 +194,21 @@ export function TaskListView({ tasks }: { tasks: TaskListItem[] }) {
       default:
         return filtered;
     }
-  }, [tasks, order, search, status, priority, label, sort]);
+  }, [
+    tasks,
+    order,
+    search,
+    status,
+    priority,
+    label,
+    sort,
+    finishedVisible,
+  ]);
+
+  const finishedCount = tasks.filter((t) => isFinishedTaskStatus(t.status)).length;
+  const openCount = tasks.length - finishedCount;
+  // Only worth mentioning when the default is actually holding something back.
+  const finishedHidden = finishedVisible ? 0 : finishedCount;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -277,6 +305,30 @@ export function TaskListView({ tasks }: { tasks: TaskListItem[] }) {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-muted/30 px-3 py-2">
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {openCount} open · {finishedCount} finished
+          {finishedHidden > 0 && ` · ${finishedHidden} hidden`}
+        </span>
+
+        <label className="flex items-center gap-2 text-sm">
+          {/* Reflects what the list is actually doing, so it can't contradict
+              the rows on screen when a status filter forces them into view. */}
+          <Switch
+            checked={finishedVisible}
+            onCheckedChange={(v) => setShowFinished(v === true)}
+            disabled={askedForFinished}
+          />
+          Show finished
+        </label>
+
+        {askedForFinished && (
+          <span className="text-xs text-muted-foreground">
+            Showing finished tasks because of the status filter.
+          </span>
+        )}
+      </div>
+
       {!canDrag && sort === "manual" && (
         <p className="text-xs text-muted-foreground">
           Clear the filters to drag tasks into a new order.
@@ -293,8 +345,20 @@ export function TaskListView({ tasks }: { tasks: TaskListItem[] }) {
           <p className="text-sm text-muted-foreground">
             {tasks.length === 0
               ? "No tasks yet. Create one to start tracking what you are owed."
-              : "No tasks match these filters."}
+              : finishedHidden > 0 && !filtersActive
+                ? "Everything is finished — nothing is waiting on you."
+                : "No tasks match these filters."}
           </p>
+          {finishedHidden > 0 && !filtersActive && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => setShowFinished(true)}
+            >
+              Show {finishedHidden} finished
+            </Button>
+          )}
         </div>
       ) : (
         <VerticalSortable

@@ -4,6 +4,7 @@ import {
   type DashboardSubtask,
   type OwnerBucket,
 } from "@/components/dashboard/dashboard-view";
+import { isFinishedTaskStatus } from "@/lib/domain/enums";
 import { listSubtasksWithTask, listTasks } from "@/lib/domain/queries";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +95,13 @@ export default async function DashboardPage() {
     updatedAt: task.updatedAt,
   });
 
+  // "By task" is a standing list of what still needs you, so finished tasks
+  // drop out of it. "Recently updated" deliberately keeps them — finishing
+  // something is exactly the kind of recent activity worth seeing there.
+  const openTasks = tasks
+    .filter((task) => !isFinishedTaskStatus(task.status))
+    .map(toDashboardTask);
+
   const recentlyUpdated = [...tasks]
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, 6)
@@ -106,7 +114,7 @@ export default async function DashboardPage() {
         waitingOn={waitingOn}
         dueSoon={dueSoon}
         blocked={blocked}
-        tasks={tasks.map(toDashboardTask)}
+        tasks={openTasks}
         highPriority={highPriority}
         recentlyUpdated={recentlyUpdated}
       />

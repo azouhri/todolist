@@ -39,6 +39,36 @@ export const MANUAL_TASK_STATUSES = ["lost", "cancelled"] as const;
 export const manualTaskStatusSchema = z.enum(MANUAL_TASK_STATUSES);
 export type ManualTaskStatus = z.infer<typeof manualTaskStatusSchema>;
 
+/**
+ * Terminal outcomes: the work is over, however it ended. Views that show "what
+ * still needs me" hide these by default so finished tasks stop competing with
+ * live ones for attention.
+ */
+export const FINISHED_TASK_STATUSES: readonly TaskStatus[] = [
+  "done",
+  "lost",
+  "cancelled",
+];
+
+export function isFinishedTaskStatus(status: TaskStatus): boolean {
+  return FINISHED_TASK_STATUSES.includes(status);
+}
+
+/**
+ * Whether a list showing finished tasks should include them right now.
+ *
+ * The toggle drives it, with one override: asking for a terminal status by
+ * name outranks the default. Filtering to "Done" and getting an empty list
+ * would read as a bug, so the explicit request wins.
+ */
+export function showsFinishedTasks(
+  showFinished: boolean,
+  statusFilter: TaskStatus | "all",
+): boolean {
+  if (showFinished) return true;
+  return statusFilter !== "all" && isFinishedTaskStatus(statusFilter);
+}
+
 export const HISTORY_EVENT_TYPES = [
   "requested",
   "reminder_sent",
