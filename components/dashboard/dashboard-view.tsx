@@ -84,10 +84,14 @@ function groupByTask(subtasks: readonly DashboardSubtask[]): TaskGroup[] {
  * `DashboardView` — so the count badge is unconditional and there is no empty
  * state to handle here.
  *
- * The body scrolls inside the card rather than growing it. One busy widget
- * used to push every other card off the screen, which defeats the point of a
- * dashboard: the header stays put and the overflow is the widget's problem,
- * not the page's.
+ * Every card is the same height once the grid has more than one column, so the
+ * rows line up instead of stepping raggedly down the page. The body scrolls
+ * inside that fixed height rather than setting it: the header stays put, and a
+ * busy widget can no longer push the others off the screen.
+ *
+ * Below `lg` the grid is a single column, where a fixed height would only add
+ * scrolling to cards that had room to breathe — so there the card sizes to its
+ * content and the cap does the work instead.
  */
 function Widget({
   title,
@@ -99,7 +103,9 @@ function Widget({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="gap-3">
+    // h-88 is ~374px at this app's 17px root: about eight collapsed rows of
+    // body, and two full rows of cards inside a laptop viewport.
+    <Card className="gap-3 lg:h-88">
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-sm">
           {title}
@@ -108,7 +114,9 @@ function Widget({
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="max-h-80 overflow-y-auto">{children}</CardContent>
+      <CardContent className="max-h-80 min-h-0 flex-1 overflow-y-auto lg:max-h-none">
+        {children}
+      </CardContent>
     </Card>
   );
 }
@@ -390,8 +398,8 @@ export function DashboardView({
           </p>
         </div>
       ) : (
-        // items-start stops a short card being stretched to match the tallest
-        // one in its row — with cards this varied, ragged beats padded out.
+        // items-start keeps the single-column layout sizing each card to its
+        // content; from lg up the explicit height on the card takes over.
         <div className="grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">
           {visible.map((widget) => (
             <Widget key={widget.key} title={widget.title} count={widget.count}>
