@@ -1,6 +1,8 @@
 -- Follow-up & Execution Manager — initial schema
 --
--- Run once against the Supabase project (SQL Editor, or `supabase db push`).
+-- Run once against the Supabase project (SQL Editor, or `supabase db push`),
+-- then run the rest of this directory in filename order. This file alone is
+-- not a complete schema: the app will not start against it.
 --
 -- Conventions:
 --   * snake_case columns, per Postgres/PostgREST convention. The app maps them
