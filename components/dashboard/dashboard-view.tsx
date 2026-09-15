@@ -79,13 +79,23 @@ function groupByTask(subtasks: readonly DashboardSubtask[]): TaskGroup[] {
   return [...groups.values()];
 }
 
+/**
+ * A widget only ever renders with something in it — see the filter in
+ * `DashboardView` — so the count badge is unconditional and there is no empty
+ * state to handle here.
+ *
+ * The body scrolls inside the card rather than growing it. One busy widget
+ * used to push every other card off the screen, which defeats the point of a
+ * dashboard: the header stays put and the overflow is the widget's problem,
+ * not the page's.
+ */
 function Widget({
   title,
   count,
   children,
 }: {
   title: string;
-  count?: number;
+  count: number;
   children: React.ReactNode;
 }) {
   return (
@@ -93,21 +103,13 @@ function Widget({
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-sm">
           {title}
-          {count !== undefined && count > 0 && (
-            <Badge variant="secondary" className="tabular-nums">
-              {count}
-            </Badge>
-          )}
+          <Badge variant="secondary" className="tabular-nums">
+            {count}
+          </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="max-h-80 overflow-y-auto">{children}</CardContent>
     </Card>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="py-6 text-center text-sm text-muted-foreground">{children}</p>
   );
 }
 
@@ -180,6 +182,85 @@ function TaskGroups({
   );
 }
 
+/**
+ * "Waiting on" is grouped by person rather than by task: it exists to answer
+ * "who owes me what", so the owner stays the headline.
+ */
+function OwnerBuckets({ buckets }: { buckets: readonly OwnerBucket[] }) {
+  return (
+    <ul className="space-y-0.5">
+      {buckets.map((bucket) => (
+        <li key={bucket.ownerName}>
+          <CollapsibleGroup
+            title={bucket.ownerName}
+            trailing={
+              <>
+                {bucket.needsReminder > 0 && (
+                  <Badge className="shrink-0 bg-amber-500/15 text-amber-700 tabular-nums dark:text-amber-300">
+                    {bucket.needsReminder} to chase
+                  </Badge>
+                )}
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {bucket.waiting} open
+                </span>
+              </>
+            }
+          >
+            {bucket.items.map((item) => (
+              <SubtaskLine
+                key={item.id}
+                subtask={item}
+                subtitle={item.taskTitle}
+                trailing={
+                  <>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {item.daysWaiting !== null
+                        ? `waiting ${item.daysWaiting}d`
+                        : "waiting"}
+                    </span>
+                    {item.needsChasing && (
+                      <Badge className="shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                        Chase
+                      </Badge>
+                    )}
+                  </>
+                }
+              />
+            ))}
+          </CollapsibleGroup>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Already one row per task, so these two widgets need no grouping. */
+function TaskLines({
+  tasks,
+  trailing,
+}: {
+  tasks: readonly DashboardTask[];
+  trailing: (task: DashboardTask) => React.ReactNode;
+}) {
+  return (
+    <ul className="space-y-0.5">
+      {tasks.map((task) => (
+        <li key={task.id}>
+          <Link
+            href={`/tasks/${task.id}`}
+            className="-mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent"
+          >
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {task.title}
+            </span>
+            {trailing(task)}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function DashboardView({
   needsReminder,
   waitingOn,
@@ -197,164 +278,128 @@ export function DashboardView({
   highPriority: DashboardSubtask[];
   recentlyUpdated: DashboardTask[];
 }) {
+  const widgets = [
+    {
+      key: "needs-reminder",
+      title: "Needs a reminder today",
+      count: needsReminder.length,
+      body: (
+        <TaskGroups
+          subtasks={needsReminder}
+          trailing={(subtask) => (
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {subtask.daysSinceLastContact}d quiet
+            </span>
+          )}
+        />
+      ),
+    },
+    {
+      key: "waiting-on",
+      title: "Waiting on",
+      count: waitingOn.length,
+      body: <OwnerBuckets buckets={waitingOn} />,
+    },
+    {
+      key: "due-soon",
+      title: "Due today & overdue",
+      count: dueSoon.length,
+      body: (
+        <TaskGroups
+          subtasks={dueSoon}
+          trailing={(subtask) => <OverdueBadge dueToday={subtask.isDueToday} />}
+        />
+      ),
+    },
+    {
+      key: "blocked",
+      title: "Blocked",
+      count: blocked.length,
+      body: <TaskGroups subtasks={blocked} />,
+    },
+    {
+      key: "by-task",
+      title: "By task",
+      count: tasks.length,
+      body: (
+        <TaskLines
+          tasks={tasks}
+          trailing={(task) => (
+            <>
+              <StatusBadge status={task.status} />
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {task.progress.done}/{task.progress.total}
+              </span>
+            </>
+          )}
+        />
+      ),
+    },
+    {
+      key: "high-priority",
+      title: "High priority",
+      count: highPriority.length,
+      body: (
+        <TaskGroups
+          subtasks={highPriority}
+          trailing={(subtask) => (
+            <>
+              <PriorityBadge priority={subtask.priority} />
+              <StatusBadge status={subtask.status} />
+            </>
+          )}
+        />
+      ),
+    },
+    {
+      key: "recently-updated",
+      title: "Recently updated",
+      count: recentlyUpdated.length,
+      body: (
+        <TaskLines
+          tasks={recentlyUpdated}
+          trailing={(task) => (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {formatDate(task.updatedAt)}
+            </span>
+          )}
+        />
+      ),
+    },
+  ];
+
+  // An empty widget is worse than no widget: "Nothing blocked" is a whole card
+  // of reassurance nobody asked for, and it pushes the widgets that do have
+  // something to say off the screen. Silence is the good news.
+  const visible = widgets.filter((widget) => widget.count > 0);
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
 
-      <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-        <Widget title="Needs a reminder today" count={needsReminder.length}>
-          {needsReminder.length === 0 ? (
-            <Empty>Nothing to chase today</Empty>
-          ) : (
-            <TaskGroups
-              subtasks={needsReminder}
-              trailing={(subtask) => (
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {subtask.daysSinceLastContact}d quiet
-                </span>
-              )}
-            />
-          )}
-        </Widget>
-
-        {/* Grouped by person rather than task: this widget exists to answer
-            "who owes me what", so the owner stays the headline. */}
-        <Widget title="Waiting on" count={waitingOn.length}>
-          {waitingOn.length === 0 ? (
-            <Empty>You are not waiting on anyone</Empty>
-          ) : (
-            <ul className="space-y-0.5">
-              {waitingOn.map((bucket) => (
-                <li key={bucket.ownerName}>
-                  <CollapsibleGroup
-                    title={bucket.ownerName}
-                    trailing={
-                      <>
-                        {bucket.needsReminder > 0 && (
-                          <Badge className="shrink-0 bg-amber-500/15 text-amber-700 tabular-nums dark:text-amber-300">
-                            {bucket.needsReminder} to chase
-                          </Badge>
-                        )}
-                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                          {bucket.waiting} open
-                        </span>
-                      </>
-                    }
-                  >
-                    {bucket.items.map((item) => (
-                      <SubtaskLine
-                        key={item.id}
-                        subtask={item}
-                        subtitle={item.taskTitle}
-                        trailing={
-                          <>
-                            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                              {item.daysWaiting !== null
-                                ? `waiting ${item.daysWaiting}d`
-                                : "waiting"}
-                            </span>
-                            {item.needsChasing && (
-                              <Badge className="shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-300">
-                                Chase
-                              </Badge>
-                            )}
-                          </>
-                        }
-                      />
-                    ))}
-                  </CollapsibleGroup>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Widget>
-
-        <Widget title="Due today & overdue" count={dueSoon.length}>
-          {dueSoon.length === 0 ? (
-            <Empty>Nothing due</Empty>
-          ) : (
-            <TaskGroups
-              subtasks={dueSoon}
-              trailing={(subtask) => (
-                <OverdueBadge dueToday={subtask.isDueToday} />
-              )}
-            />
-          )}
-        </Widget>
-
-        <Widget title="Blocked" count={blocked.length}>
-          {blocked.length === 0 ? (
-            <Empty>Nothing blocked</Empty>
-          ) : (
-            <TaskGroups subtasks={blocked} />
-          )}
-        </Widget>
-
-        <Widget title="By task" count={tasks.length}>
-          {tasks.length === 0 ? (
-            <Empty>No tasks yet</Empty>
-          ) : (
-            <ul className="space-y-0.5">
-              {tasks.map((task) => (
-                <li key={task.id}>
-                  <Link
-                    href={`/tasks/${task.id}`}
-                    className="-mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                      {task.title}
-                    </span>
-                    <StatusBadge status={task.status} />
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                      {task.progress.done}/{task.progress.total}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Widget>
-
-        <Widget title="High priority" count={highPriority.length}>
-          {highPriority.length === 0 ? (
-            <Empty>Nothing flagged high</Empty>
-          ) : (
-            <TaskGroups
-              subtasks={highPriority}
-              trailing={(subtask) => (
-                <>
-                  <PriorityBadge priority={subtask.priority} />
-                  <StatusBadge status={subtask.status} />
-                </>
-              )}
-            />
-          )}
-        </Widget>
-
-        <Widget title="Recently updated" count={recentlyUpdated.length}>
-          {recentlyUpdated.length === 0 ? (
-            <Empty>Nothing yet</Empty>
-          ) : (
-            <ul className="space-y-0.5">
-              {recentlyUpdated.map((task) => (
-                <li key={task.id}>
-                  <Link
-                    href={`/tasks/${task.id}`}
-                    className="-mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                      {task.title}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDate(task.updatedAt)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Widget>
-      </div>
+      {visible.length === 0 ? (
+        <div className="rounded-xl border border-dashed py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            Nothing needs you right now.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            <Link href="/tasks" className="underline">
+              Create a task
+            </Link>{" "}
+            when something comes up.
+          </p>
+        </div>
+      ) : (
+        // items-start stops a short card being stretched to match the tallest
+        // one in its row — with cards this varied, ragged beats padded out.
+        <div className="grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {visible.map((widget) => (
+            <Widget key={widget.key} title={widget.title} count={widget.count}>
+              {widget.body}
+            </Widget>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
